@@ -1,5 +1,5 @@
 import type { MetaFunction } from "@remix-run/node";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import html2canvas from "html2canvas";
 import ReactSlider from "react-slider";
 
@@ -39,21 +39,59 @@ export default function Index() {
 
   const paperClass = isOldPaper ? "bg-[#f4e5c9]" : "bg-white";
 
-  const handleShare = async () => {
+  const overlayOpacity = dimLevel / 100;
+
+  const handleShare = useCallback(async () => {
     if (poetryRef.current) {
-      const canvas = await html2canvas(poetryRef.current, {
+      // Create a temporary container
+      const tempContainer = document.createElement("div");
+      tempContainer.style.position = "absolute";
+      tempContainer.style.left = "-9999px";
+      tempContainer.style.top = "-9999px";
+      document.body.appendChild(tempContainer);
+
+      // Create the frame
+      const frame = document.createElement("div");
+      frame.style.width = `${poetryRef.current.offsetWidth + 64}px`; // Add 32px padding on each side
+      frame.style.height = `${poetryRef.current.offsetHeight + 64}px`; // Add 32px padding on each side
+      frame.style.backgroundImage = "url('/wood.jpg')";
+      frame.style.backgroundSize = "cover";
+      frame.style.backgroundPosition = "center";
+      frame.style.position = "relative";
+      frame.style.padding = "32px";
+
+      // Add dimming overlay
+      const overlay = document.createElement("div");
+      overlay.style.position = "absolute";
+      overlay.style.inset = "0";
+      // biome-ignore lint/style/useTemplate: <explanation>
+      overlay.style.backgroundColor = "rgba(0, 0, 0, " + overlayOpacity + ")";
+      frame.appendChild(overlay);
+
+      // Clone the poetry content
+      const poetryClone = poetryRef.current.cloneNode(true) as HTMLElement;
+      poetryClone.style.position = "relative";
+      poetryClone.style.zIndex = "1";
+      frame.appendChild(poetryClone);
+
+      tempContainer.appendChild(frame);
+
+      // Capture the frame
+      const canvas = await html2canvas(frame, {
         logging: false,
         useCORS: true,
         allowTaint: true,
-        scrollY: -window.scrollY,
-        windowHeight: document.documentElement.offsetHeight,
         scale: 2, // Increase resolution
       });
+
+      // Clean up
+      document.body.removeChild(tempContainer);
+
       const image = canvas.toDataURL("image/png");
       setImageUrl(image);
       setShowModal(true);
     }
-  };
+  }, [overlayOpacity]);
 
   const handleDownload = () => {
     const link = document.createElement("a");
@@ -62,13 +100,46 @@ export default function Index() {
     link.click();
   };
 
-  const handleSocialShare = (platform: string) => {
-    // Implement sharing logic for different platforms
-    console.log(`Sharing to ${platform}`);
-    // You would typically use the Web Share API or platform-specific SDKs here
-  };
+  const handleSocialShare = async (platform: string) => {
+    const shareData = {
+      title: "My Poetry",
+      text: "Check out my poem!",
+      url: window.location.href,
+    };
 
-  const overlayOpacity = dimLevel / 100;
+    if (navigator.share && platform === "native") {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      let shareUrl = "";
+      switch (platform) {
+        case "twitter":
+          shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+            shareData.text
+          )}&url=${encodeURIComponent(shareData.url)}`;
+          break;
+        case "facebook":
+          shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+            shareData.url
+          )}`;
+          break;
+        case "instagram":
+          // Instagram doesn't have a direct sharing URL, so we'll copy the link to clipboard
+          await navigator.clipboard.writeText(shareData.url);
+          alert(
+            "Link copied to clipboard. You can now paste it into Instagram."
+          );
+          return;
+        default:
+          console.error("Unsupported platform");
+          return;
+      }
+      window.open(shareUrl, "_blank");
+    }
+  };
 
   return (
     <div
@@ -82,7 +153,12 @@ export default function Index() {
       />
       <div
         ref={poetryRef}
-        className={`w-full max-w-4xl ${paperClass} shadow-lg rounded-lg overflow-hidden relative mb-4 transition-shadow duration-500 z-10`}
+        className={`w-full max-w-4xl ${paperClass} shadow-2xl rounded-lg overflow-hidden relative mb-4 transition-shadow duration-500 z-10`}
+        style={{
+          boxShadow: `0 0 ${dimLevel / 2}px ${
+            dimLevel / 4
+          }px rgba(255, 191, 0, ${dimLevel / 200})`,
+        }}
       >
         <div className="p-12">
           {" "}
@@ -212,7 +288,14 @@ export default function Index() {
               >
                 Download
               </button>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSocialShare("native")}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Share
+                </button>
                 <button
                   type="button"
                   onClick={() => handleSocialShare("twitter")}
