@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+.react-slider__track {
+    background: linear-gradient(to right, #fbbf24, #92400e);
+  }
+  
+  .react-slider__track-1 {
+    background: #d1d5db;
+  }
+  
+  .react-slider__thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #f59e0b;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .react-slider__thumb:hover {
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.2);
+  }
+  
+  .react-slider__thumb:active {
+    box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.3);
+  }
